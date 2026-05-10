@@ -95,7 +95,7 @@ def resumen_pedidos_hoy(request):
     fecha_hoy = timezone.localtime().date()
     resumen = {"fecha": fecha_hoy}
     
-    resumen.update(Pedido.objects.filter(fecha = fecha_hoy).aggregate(total_pedidos = Count('id'), ingresos_hoy = Coalesce(Sum('total'), Value(0))))
+    resumen.update(Pedido.objects.filter(fecha = fecha_hoy).aggregate(total_pedidos = Count('id'), ingresos_hoy = Coalesce(Sum('total'), Value(0, output_field= DecimalField()))))
     
     productos_contados = Pedido.objects.values("producto__id",'producto__nombre').annotate(
     veces_vendido=Count('producto')).order_by('-veces_vendido')

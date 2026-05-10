@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Cafetería Admin</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        /* Sección resumen */
+        .resumen-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            border-radius: 16px;
+            margin-bottom: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            text-align: center;
+            background: rgba(255,255,255,0.1);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .card h3 {
+            font-size: 14px;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+        
+        .card .value {
+            font-size: 28px;
+            font-weight: bold;
+        }
+        
+        /* Secciones tabla */
+        .section {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .stock-bajo {
+            color: #dc3545;
+            font-weight: bold;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .alert-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 30px;
+            color: #666;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .fecha-actual {
+            text-align: right;
+            color: #666;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📊 Dashboard - Cafetería Admin</h1>
+        <div class="fecha-actual" id="fecha"></div>
+        
+        <div id="resumen" class="resumen-section">
+            <div class="loading">Cargando datos...</div>
+        </div>
+        
+        <div class="section">
+            <h2>📋 Últimos 5 Pedidos</h2>
+            <div id="pedidos">
+                <div class="loading">Cargando pedidos...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>⚠️ Productos con Stock Bajo</h2>
+            <div id="stock-bajo">
+                <div class="loading">Cargando productos...</div>
+            </div>
+        </div>
+        
+        <div class="section">
+            <h2>📊 Inventario General</h2>
+            <div id="inventario">
+                <div class="loading">Cargando inventario...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ⚠️ REEMPLAZA CON TU ACCESS TOKEN REAL
+        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzc4Mzc0NzE4LCJpYXQiOjE3NzgzNzExMTgsImp0aSI6IjQ2YjdhYjE4MWMwZDQyM2RhNjFhYWFjMDQxNDYyZGRkIiwidXNlcl9pZCI6IjEifQ.wQFZE9ZTnl0B8mYDh98trpYe6hIzWZ7yhTUC5Igxtio';
+        
+        // URL de tu API (cambia por Railway si es necesario)
+        const API_URL = 'http://127.0.0.1:8000/api';
+        
+        // Mostrar fecha actual
+        document.getElementById('fecha').innerHTML = new Date().toLocaleDateString('es-ES', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+        
+        // Función genérica para fetch
+        async function fetchAPI(endpoint) {
+            const response = await fetch(`${API_URL}${endpoint}`, {
+                headers: {
+                    'Authorization': `Bearer ${TOKEN}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            return response.json();
+        }
+        
+        // 1. Cargar resumen de pedidos de hoy (usando tu endpoint)
+        async function cargarResumen() {
+            try {
+                const data = await fetchAPI('/pedidos/resumen/hoy');
+                
+                const html = `
+                    <div class="card">
+                        <h3>📅 Fecha</h3>
+                        <div class="value">${data.fecha || new Date().toLocaleDateString()}</div>
+                    </div>
+                    <div class="card">
+                        <h3>📦 Total Pedidos</h3>
+                        <div class="value">${data.total_pedidos || 0}</div>
+                    </div>
+                    <div class="card">
+                        <h3>💰 Ingresos Hoy</h3>
+                        <div class="value">$${(data.ingresos_hoy || 0).toLocaleString()}</div>
+                    </div>
+                    <div class="card">
+                        <h3>🏆 Producto Más Vendido</h3>
+                        <div class="value">${data.producto_mas_vendido || 'Ninguno'}</div>
+                    </div>
+                    <div class="card">
+                        <h3>📦 Stock Bajo</h3>
+                        <div class="value" id="stock-bajo-count">--</div>
+                    </div>
+                `;
+                
+                document.getElementById('resumen').innerHTML = html;
+                
+                // Después de mostrar resumen, cargamos el stock bajo para actualizar el contador
+                await actualizarContadorStockBajo();
+                
+            } catch (error) {
+                document.getElementById('resumen').innerHTML = `<div class="error">❌ Error al cargar resumen: ${error.message}</div>`;
+                console.error('Error resumen:', error);
+            }
+        }
+        
+        // Actualizar contador de stock bajo
+        async function actualizarContadorStockBajo() {
+            try {
+                const data = await fetchAPI('/stock_bajo/');
+                const count = data.length || 0;
+                const countElement = document.getElementById('stock-bajo-count');
+                if (countElement) {
+                    countElement.innerHTML = count;
+                    countElement.style.color = count > 0 ? '#ff6b6b' : 'white';
+                }
+            } catch (error) {
+                console.error('Error al obtener contador stock bajo:', error);
+            }
+        }
+        
+        // 2. Cargar últimos 5 pedidos (usando tu endpoint)
+        async function cargarPedidos() {
+            try {
+                const data = await fetchAPI('/pedidos/');
+                const ultimos5 = data.slice(0, 5);
+                
+                if (ultimos5.length === 0) {
+                    document.getElementById('pedidos').innerHTML = '<div class="alert-warning">📭 No hay pedidos registrados.</div>';
+                    return;
+                }
+                
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Cliente</th>
+                                <th>Producto</th>
+                                <th>Cantidad</th>
+                                <th>Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                ultimos5.forEach(pedido => {
+                    html += `
+                        <tr>
+                            <td>${pedido.cliente || 'Anónimo'}</td>
+                            <td>${pedido.producto_nombre || pedido.producto || '-'}</td>
+                            <td>${pedido.cantidad || 0}</td>
+                            <td>$${(pedido.total || 0).toLocaleString()}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table>`;
+                document.getElementById('pedidos').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('pedidos').innerHTML = `<div class="error">❌ Error al cargar pedidos: ${error.message}</div>`;
+                console.error('Error pedidos:', error);
+            }
+        }
+        
+        // 3. Cargar productos con stock bajo (usando tu endpoint)
+        async function cargarStockBajo() {
+            try {
+                const data = await fetchAPI('/stock_bajo/');
+                
+                if (!data || data.length === 0) {
+                    document.getElementById('stock-bajo').innerHTML = `
+                        <div class="alert-success">✅ ¡Inventario en orden! No hay productos con stock bajo.</div>
+                    `;
+                    return;
+                }
+                
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Producto</th>
+                                <th>Stock Actual</th>
+                                <th>Stock Mínimo</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                data.forEach(producto => {
+                    const stockMinimo = producto.stock_minimo || 5;
+                    const isCritical = producto.stock === 0;
+                    
+                    html += `
+                        <tr class="${isCritical ? 'stock-bajo' : ''}" style="${isCritical ? 'background:#fff3cd;' : ''}">
+                            <td><strong>${producto.nombre}</strong></td>
+                            <td style="font-weight: bold; color: ${producto.stock === 0 ? '#dc3545' : '#e67e22'}">
+                                ${producto.stock} unidades
+                            </td>
+                            <td>${stockMinimo}</td>
+                            <td>${producto.stock === 0 ? '🚨 ¡AGOTADO! Reponer urgente' : '⚠️ Por debajo del mínimo'}</td>
+                        </tr>
+                    `;
+                });
+                
+                html += `</tbody></table>`;
+                document.getElementById('stock-bajo').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('stock-bajo').innerHTML = `<div class="error">❌ Error al cargar stock bajo: ${error.message}</div>`;
+                console.error('Error stock bajo:', error);
+            }
+        }
+        
+        // 4. Cargar inventario general (usando tu endpoint)
+        async function cargarInventario() {
+            try {
+                const data = await fetchAPI('/inventario/');
+                
+                if (!data) {
+                    document.getElementById('inventario').innerHTML = '<div class="alert-warning">📊 No hay datos de inventario.</div>';
+                    return;
+                }
+                
+                let html = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">
+                `;
+                
+                // Si data es una lista de productos
+                if (Array.isArray(data)) {
+                    const totalProductos = data.length;
+                    const totalStock = data.reduce((sum, p) => sum + (p.stock || 0), 0);
+                    const valorInventario = data.reduce((sum, p) => sum + ((p.stock || 0) * (p.precio || 0)), 0);
+                    
+                    html += `
+                        <div class="card" style="background: #e8f4fd; color: #333;">
+                            <h3>📦 Total Productos</h3>
+                            <div class="value">${totalProductos}</div>
+                        </div>
+                        <div class="card" style="background: #e8f4fd; color: #333;">
+                            <h3>📦 Unidades en Stock</h3>
+                            <div class="value">${totalStock}</div>
+                        </div>
+                        <div class="card" style="background: #e8f4fd; color: #333;">
+                            <h3>💰 Valor del Inventario</h3>
+                            <div class="value">$${valorInventario.toLocaleString()}</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 20px; overflow-x: auto;">
+                        <table style="margin-top: 10px;">
+                            <thead>
+                                <tr>
+                                    <th>Producto</th>
+                                    <th>Precio</th>
+                                    <th>Stock</th>
+                                    <th>Valor Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                    `;
+                    
+                    data.forEach(producto => {
+                        const valorTotal = (producto.stock || 0) * (producto.precio || 0);
+                        html += `
+                            <tr>
+                                <td><strong>${producto.nombre}</strong></td>
+                                <td>$${(producto.precio || 0).toLocaleString()}</td>
+                                <td>${producto.stock || 0} unds</td>
+                                <td>$${valorTotal.toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += `</tbody>}</div>`;
+                } else {
+                    // Si data es un objeto con resumen
+                    html += `
+                        <div class="card" style="background: #e8f4fd; color: #333;">
+                            <h3>📦 Total Productos</h3>
+                            <div class="value">${data.total_productos || 0}</div>
+                        </div>
+                        <div class="card" style="background: #e8f4fd; color: #333;">
+                            <h3>💰 Valor del Inventario</h3>
+                            <div class="value">$${(data.valor_total_inventario || 0).toLocaleString()}</div>
+                        </div>
+                    </div>
+                    `;
+                }
+                
+                document.getElementById('inventario').innerHTML = html;
+                
+            } catch (error) {
+                document.getElementById('inventario').innerHTML = `<div class="error">❌ Error al cargar inventario: ${error.message}</div>`;
+                console.error('Error inventario:', error);
+            }
+        }
+        
+        // Cargar todo al iniciar
+        async function cargarTodo() {
+            await cargarResumen();
+            await cargarPedidos();
+            await cargarStockBajo();
+            await cargarInventario();
+        }
+        
+        cargarTodo();
+        
+        // Recargar cada 30 segundos
+        setInterval(cargarTodo, 30000);
+    </script>
+</body>
+</html>
