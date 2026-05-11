@@ -25,9 +25,45 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = config('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config('DEBUG', cast=bool)
+DEBUG = config('DEBUG', cast=bool, default = False)
 
-ALLOWED_HOSTS = ['*']  # ← Permite todo (solo para pruebas)
+ALLOWED_HOSTS = config('ALLOWED_HOST', default = '').split(',')  # ← Permite todo (solo para pruebas)
+
+if not ALLOWED_HOSTS or ALLOWED_HOSTS == ['']:
+         ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.railway.app']
+# CORS configuration
+CORS_ALLOW_ALL_ORIGINS = False  # ← CAMBIAR a False
+CORS_ALLOWED_ORIGINS = [  
+    'http://127.0.0.1:5500',  # para desarrollo local (Live Server)
+    'http://localhost:5500',
+    'http://127.0.0.1:8000',  # para pruebas locales
+]
+
+# Opcional: permitir credenciales (cookies, authorization headers)
+CORS_ALLOW_CREDENTIALS = True
+
+# Métodos permitidos
+CORS_ALLOW_METHODS = [
+    'DELETE',
+    'GET',
+    'OPTIONS',
+    'PATCH',
+    'POST',
+    'PUT',
+]
+
+# Headers permitidos
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
 
 
 # Application definition
@@ -140,6 +176,12 @@ STATIC_URL = 'static/'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ) if not DEBUG else (
+        'rest_framework.renderers.JSONRenderer',
+        'rest_framework.renderers.BrowsableAPIRenderer',
     ),
 }
 
